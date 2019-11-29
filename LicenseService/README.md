@@ -1,14 +1,14 @@
 To run the License Service you need first the following:
 
-01.Install and prepare MySQL Server according to the Handouts Chapter 4
+1.Install and prepare MySQL Server according to the Handouts Chapter 4
 
 https://github.com/WilkinsonEyre/License-Management/blob/master/Autodesk%20University%202019%20-%20Las%20Vegas%20-%20AS321478-Open%20Source%20License%20Dashboard%20and%20User%E2%80%99s%20RealTime%20Data/ClassHandout-AS321478-Open%20Source%20License%20Dashboard%20and%20User%E2%80%99s%20RealTime%20Data-Fabio%20Roberti-AU2019.pdf
 
-02.Install MySQL Connector 
+2.Install MySQL Connector 
 
 https://dev.mysql.com/downloads/connector/net
 
-03.Edit the Program.cs before you build
+3.Edit the Program.cs before you build
 
 https://github.com/WilkinsonEyre/License-Management/blob/master/LicenseService/LicenseService/Program.cs
 
