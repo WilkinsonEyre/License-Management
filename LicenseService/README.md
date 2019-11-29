@@ -8,7 +8,7 @@ https://github.com/WilkinsonEyre/License-Management/blob/master/Autodesk%20Unive
 
 https://dev.mysql.com/downloads/connector/net
 
-03. Edit the Program.cs before you build
+03.Edit the Program.cs before you build
 
 https://github.com/WilkinsonEyre/License-Management/blob/master/LicenseService/LicenseService/Program.cs
 
