@@ -8,11 +8,11 @@ https://github.com/WilkinsonEyre/License-Management/blob/master/Autodesk%20Unive
 
 https://dev.mysql.com/downloads/connector/net
 
-3.Edit the Program.cs before you build
+3.Before you build, edit the Program.cs 
 
 https://github.com/WilkinsonEyre/License-Management/blob/master/LicenseService/LicenseService/Program.cs
 
-and provide the following:
+And provide the following:
 
 -MySQL Information 
 
