@@ -7,6 +7,7 @@ https://github.com/WilkinsonEyre/License-Management/blob/master/Autodesk%20Unive
 2.Install MySQL Connector 
 
 https://dev.mysql.com/downloads/connector/net/
+
 3. Edit the Program.cs before you build
 
 https://github.com/WilkinsonEyre/License-Management/blob/master/LicenseService/LicenseService/Program.cs
