@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,7 +10,6 @@ namespace LicenseService
 {
     class Program
     {
-
 
         public static void Main(string[] args)
         {
@@ -42,10 +41,8 @@ namespace LicenseService
 
         static string connectionString = "SERVER=" + ServerName + ";" + "DATABASE=" + DatabaseName + ";" + "UID=" + UserName + ";" + "PASSWORD=" + Password + ";";
 
-
         static void ReadProjectFiles()
         {
-
             List<string> Lines = new List<string>();
             
             DateTime FirstDay = new DateTime(2019, 10, 18);
@@ -58,14 +55,25 @@ namespace LicenseService
 
             String applicationPath = System.IO.Directory.GetCurrentDirectory();
 
+
             string AutodeskLog = LicenseLogPath;
 
-            System.IO.FileStream fs = new System.IO.FileStream(@AutodeskLog, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite);
+            System.IO.FileStream fs = null;
+            System.IO.StreamReader sr = null;
+            Boolean LicenseFileExist = false;
+            try
+            {
+                fs = new System.IO.FileStream(@AutodeskLog, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite);
+                LicenseFileExist = true;
 
-            System.IO.StreamReader sr = new System.IO.StreamReader(fs);
+                sr = new System.IO.StreamReader(fs);
+            }
+            catch (Exception e)
+            {
+                Debug.Print("Exception: " + e.ToString());
+            }
 
             List<DataLines> DataLinesFromFile = new List<DataLines>();
-
             string PreviousTime = "";
             string PreviousUserName = "";
             string PreviousAction = "";
@@ -73,11 +81,9 @@ namespace LicenseService
             int LineCounter = 0;
             int ParsingLine = 0;
 
-
-            while ((line = sr.ReadLine()) != null)
+            while ((line = sr.ReadLine()) != null & LicenseFileExist)
             {
                 LineCounter++;
-
                 if (line.Length != 0)
                 {
                     if (line.Contains("TIMESTAMP "))
@@ -99,7 +105,7 @@ namespace LicenseService
                         int debug = 0;
                     }
 
-                    if (line.Substring(0, 1)!="-" & line.Substring(0, 1) != "=" & line.Substring(0, 4) != "Shut" & line.Substring(0, 1) != "N" & line.Substring(0, 1) != "R") //To avoid the "Shut down FlexNet adskflex license server system on machine BGL-LIC-P-0775"
+                    if (line.Substring(0, 1)!="-" & line.Substring(0, 1) != "=" & line.Substring(0, 4) != "Shut" & line.Substring(0, 1) != "N" & line.Substring(0, 1) != "R" & line.Substring(0,9)!= "TIMESTAMP")
                     {
                         string exportedTime_Only = line.Substring(0, 8);
                         exportedTime_Only = exportedTime_Only.Replace(" ", "0");
@@ -113,7 +119,6 @@ namespace LicenseService
 
                         if (Int32.Parse(exportedHour) < lastExportedHour)
                         {
-                            //AllDays.Add(new DateTime(CurrentDay.Year, CurrentDay.Month, CurrentDay.Day));
                             CurrentDay = new DateTime (CurrentDay.Year, CurrentDay.Month, CurrentDay.Day).AddDays(+1);
                         }
 
@@ -124,7 +129,6 @@ namespace LicenseService
                             if (line.IndexOf("@") != -1)
                             {
                                 //Action
-
                                 string exportedTime = CurrentDay.ToString("yyyy-MM-dd") + " " + exportedTime_Only;// +"."+ UserSequence.ToString("000");
                                 string exportedTimeWithDecimals="";
 
@@ -140,8 +144,6 @@ namespace LicenseService
                                 List<int> pos4 = AllIndexesOf(line, "@");
                                 string exportedUserName = line.Substring(pos3[1] + 2, pos4[0] - pos3[1] - 2);
 
-
-
                                 if (exportedUserName.IndexOf(")") != -1)
                                 {
                                     int pos4_1 = exportedUserName.IndexOf(")");
@@ -155,7 +157,6 @@ namespace LicenseService
                                 string exportedDetails = "";
                                 List<int> pos5 = AllIndexesOf(line, "(");
                                 if (pos5.Count == 2)
-                                    //exportedDetails = line.Substring(pos5[1] + 1, pos1[1] - pos5[1] - 1);
                                     exportedDetails = line.Substring(pos5[1] + 1, line.Length - pos5[1] - 2);
 
                                 if (ParsingLine==0)
@@ -180,25 +181,51 @@ namespace LicenseService
                                 }
                                 else
                                 {
-                                    exportedTimeWithDecimals = CurrentDay.ToString("yyyy-MM-dd") + " " + exportedTime_Only + "." + UserSequence.ToString("000");
-                                    DataLinesFromFile[DataLinesFromFile.Count - 1].setAdditionalData(exportedAction, exportedLicenseNumber, exportedDetails);
+                                    if (!exportedUserName.Equals(PreviousUserName))
+                                    {
+                                        if (exportedTime.Equals(PreviousTime))
+                                        {
+                                            UserSequence++;
+                                            exportedTimeWithDecimals = CurrentDay.ToString("yyyy-MM-dd") + " " + exportedTime_Only + "." + UserSequence.ToString("000");
+                                        }
+                                        else
+                                        {
+                                            UserSequence = 0;
+                                            exportedTimeWithDecimals = CurrentDay.ToString("yyyy-MM-dd") + " " + exportedTime_Only + "." + UserSequence.ToString("000");
+                                        }
 
+                                        DataLinesFromFile.Add(new DataLines(exportedTimeWithDecimals, exportedAction, exportedLicenseNumber, exportedUserName, exportedComputerName, exportedDetails));
+                                    }
+                                    else
+                                    {
+                                        exportedTimeWithDecimals = CurrentDay.ToString("yyyy-MM-dd") + " " + exportedTime_Only + "." + UserSequence.ToString("000");
+                                        DataLinesFromFile[DataLinesFromFile.Count - 1].setAdditionalData(exportedAction, exportedLicenseNumber, exportedDetails);
+                                    }
                                     ParsingLine = 0;
+                                }
+                                if (DataLinesFromFile.Count==4784)
+                                {
+                                    int debug = 0;
                                 }
 
                                 PreviousTime = exportedTime;
                                 PreviousUserName = exportedUserName;
                                 PreviousAction = exportedAction;
                             }
+
                         }
                     }
-
+                    else
+                    {
+                        int donothing = 0;
+                    }
                 }
-
+                else
+                {
+                    int donothing = 0;
+                }
             }
             sr.Close();
-
-            bool ItemExists = false;
 
             int PreviousLastEntry = 0;
 
@@ -207,9 +234,7 @@ namespace LicenseService
             {
                 using (System.IO.BinaryReader b = new System.IO.BinaryReader(System.IO.File.Open(applicationPath + "\\lastEntry", System.IO.FileMode.Open)))
                 {
-
                     int pos = 0;
-
                     int length = (int)b.BaseStream.Length;
 
                         int v = b.ReadInt32();
@@ -217,26 +242,47 @@ namespace LicenseService
                         PreviousLastEntry=v;
                         PreviousLastEntry++;
                 }
-
             }
 
             int NewEntry;
-            if (PreviousLastEntry < DataLinesFromFile.Count) NewEntry = PreviousLastEntry; else NewEntry = 0;
-            
+            if (PreviousLastEntry <= DataLinesFromFile.Count) NewEntry = PreviousLastEntry;
+            else
+            {
+                Console.WriteLine("");
+                Console.WriteLine("---------------------------------");
+                Console.WriteLine("---------------------------------");
+                Console.WriteLine("THE LOG FILE HAS BEEN RENEWED - DATA IN THE 'input_table_triggered' MYSQL TABLE WILL BE ERASED");
+                Console.WriteLine("");
+                Console.WriteLine("HOWEVER, ALL HISTORIC DATA ARE KEPT AT THE 'input_table_triggered_master' MYSQL TABLE");
+                Console.WriteLine("---------------------------------");
+                Console.WriteLine("---------------------------------");
+                Console.WriteLine("Please press enter to continue");
+                int userInput1 = Console.Read();
+                
+                NewEntry = 0;
+
+                MySqlConnection connection = new MySqlConnection(connectionString);
+                string query_revit_licence_autodesk = "delete from input_table_triggered";
+                connection.Open();
+                MySqlCommand cmd = new MySqlCommand(query_revit_licence_autodesk, connection);
+                cmd.ExecuteNonQuery();
+                connection.Close();
+                Console.WriteLine(query_revit_licence_autodesk);
+            }
+
+
             for (int ii = NewEntry; ii < DataLinesFromFile.Count; ii++)
             {
-
+                
                 {
-
-
                     DataLines i = DataLinesFromFile[ii];
 
                     try
                     {
                         MySqlConnection connection = new MySqlConnection(connectionString);
-
+                        
                         string query_revit_licence_autodesk = "INSERT INTO input_table (`DateTime`,`User`,`Computer`,`Action`,`LicenseCode`, `ApplicationName`)  VALUES (\"" + i.Time + "\",\"" + i.UserName + "\",\"" + i.ComputerName + "\",\"" + i.Action + "\",\"" + i.LicenseNumber + "\",\"" + i.Version + "\")";
-
+                        
                         connection.Open();
                         MySqlCommand cmd = new MySqlCommand(query_revit_licence_autodesk, connection);
                         cmd.ExecuteNonQuery();
@@ -246,18 +292,15 @@ namespace LicenseService
                     }
                     catch (Exception e)
                     {
-                        ItemExists = true;
                         try
                         {
                             Console.WriteLine(e.ToString());
-
                         }
                         catch (Exception e2)
                         {
 
                         }
                     }
-
                 }
 
                 //storing the last entry of the database
@@ -278,9 +321,7 @@ namespace LicenseService
                     byte[] info = BitConverter.GetBytes(ii);
                     fs_.Write(info, 0, info.Length);
                 }
-
             }
-
         }
 
         class DataLines
@@ -300,14 +341,13 @@ namespace LicenseService
                 ComputerName = exportedComputerName;
 
                 {
-                    //expand those if necessary
                     if (exportedLicenseNumber.IndexOf("2014") != -1 ||
                     exportedLicenseNumber.IndexOf("2015") != -1 ||
                     exportedLicenseNumber.IndexOf("2016") != -1 ||
                     exportedLicenseNumber.IndexOf("2017") != -1 ||
                     exportedLicenseNumber.IndexOf("2018") != -1 ||
                     exportedLicenseNumber.IndexOf("2019") != -1 ||
-                    exportedLicenseNumber.IndexOf("2020") != -1
+					exportedLicenseNumber.IndexOf("2020") != -1 ||
                     )
                         Version = exportedLicenseNumber;
                     else
@@ -332,7 +372,7 @@ namespace LicenseService
                         exportedLicenseNumber.IndexOf("2017") != -1 ||
                         exportedLicenseNumber.IndexOf("2018") != -1 ||
                         exportedLicenseNumber.IndexOf("2019") != -1 ||
-                        exportedLicenseNumber.IndexOf("2020") != -1
+						exportedLicenseNumber.IndexOf("2020") != -1
                         )
                             Version = exportedLicenseNumber;
                         else
@@ -353,7 +393,6 @@ namespace LicenseService
                             LicenseNumber = exportedLicenseNumber;
                     }
                 }
-
             }
         }
         public static List<int> AllIndexesOf(string str, string value)
