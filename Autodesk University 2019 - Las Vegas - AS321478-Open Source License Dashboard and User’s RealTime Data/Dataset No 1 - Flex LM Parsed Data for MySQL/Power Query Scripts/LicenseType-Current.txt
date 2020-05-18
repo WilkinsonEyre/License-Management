@@ -1,0 +1,13 @@
+let
+    Source = MySQL.Database(localhost, license_schema, [ReturnSingleDatabase=true]),
+    license_schema_triggered_table = Source{[Schema=license_schema,Item=triggered_table]}[Data],
+    #Sorted Rows = Table.Sort(license_schema_triggered_table,{{DateTime, Order.Descending}}),
+    #Filtered Rows1 = Table.SelectRows(#Sorted Rows, each ([Action] = IN or [Action] = OUT)),
+    
+    #Buffered = Table.Buffer(#Filtered Rows1),
+    #Removed Duplicates = Table.Distinct(#Buffered, {LicenseCode}),
+    #Merged Queries = Table.NestedJoin(#Removed Duplicates, {LicenseCode}, #Total Licenses, {LicenseCode}, Removed Duplicates, JoinKind.LeftOuter),
+    #Expanded Removed Duplicates1 = Table.ExpandTableColumn(#Merged Queries, Removed Duplicates, {Total Licenses}, {Removed Duplicates.Total Licenses}),
+    #Renamed Columns = Table.RenameColumns(#Expanded Removed Duplicates1,{{TotalLicenses, Aquired Licenses}, {Removed Duplicates.Total Licenses, Total Licenses}})
+in
+    #Renamed Columns

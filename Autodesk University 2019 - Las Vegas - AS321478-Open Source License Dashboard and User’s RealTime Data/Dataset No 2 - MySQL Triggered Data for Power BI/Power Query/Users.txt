@@ -1,0 +1,4 @@
+    #"Removed Other Columns" = Table.SelectColumns(#"Promoted Headers",{"User"}),
+    #"Removed Duplicates" = Table.Distinct(#"Removed Other Columns")
+in
+    #"Removed Duplicates"

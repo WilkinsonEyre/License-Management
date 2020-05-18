@@ -1,0 +1,62 @@
+let
+    Source = MySQL.Database("localhost", "license_schema", [ReturnSingleDatabase=true]),
+    license_schema_triggered_table = Source{[Schema="license_schema",Item="triggered_table"]}[Data],
+    #"Filtered Rows" = Table.SelectRows(license_schema_triggered_table, each ([LicenseDuration] <> null) and ([Action] = "IN") and ([TotalApplicationInstancesPerLicense] = 0)),
+    #"Added Custom3" = Table.AddColumn(#"Filtered Rows", "DateTime(Milliseconds)", each Text.From(DateTime.Date([DateTime]))&" "&
+Text.From(Time.Hour([DateTime]))&":"&
+Text.From(Time.Minute([DateTime]))&":"&
+Text.From(Time.Second([DateTime]))),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Added Custom3",{{"LicenseDuration", type time}}),
+    #"Replaced Errors" = Table.ReplaceErrorValues(#"Changed Type1", {{"LicenseDuration", #time(0, 0, 0)}}),
+    #"Inserted Hour" = Table.AddColumn(#"Replaced Errors", "Hour", each Time.Hour([LicenseDuration]), Int64.Type),
+    #"Inserted Minute" = Table.AddColumn(#"Inserted Hour", "Minute", each Time.Minute([LicenseDuration]), Int64.Type),
+    #"Inserted Second" = Table.AddColumn(#"Inserted Minute", "Second", each Time.Second([LicenseDuration]), type number),
+    #"Added Custom" = Table.AddColumn(#"Inserted Second", "Custom", each [DateTime] - #duration(0,[Hour],[Minute],[Second])),
+    #"Renamed Columns" = Table.RenameColumns(#"Added Custom",{{"Custom", "Starting DateTime"}}),
+    #"Reordered Columns" = Table.ReorderColumns(#"Renamed Columns",{"ID", "Starting DateTime", "DateTime", "User", "Computer", "Action", "LicenseCode", "ApplicationName", "TotalApplicationInstancesPerLicense", "LicenseDuration", "Hour", "Minute", "Second"}),
+    #"Renamed Columns1" = Table.RenameColumns(#"Reordered Columns",{{"DateTime", "Ending DateTime"}}),
+    #"Changed Type" = Table.TransformColumnTypes(#"Renamed Columns1",{{"Starting DateTime", type datetime}}),
+    #"Sorted Rows1" = Table.Sort(#"Changed Type",{{"User", Order.Ascending}}),
+    #"Added Custom1" = Table.AddColumn(#"Sorted Rows1", "DayOnly", each Text.From(DateTime.Date([Ending DateTime]))),
+    #"Added Custom2" = Table.AddColumn(#"Added Custom1", "SplitDay", each {Number.RoundDown(Number.From([Starting DateTime]), 0)..
+Number.RoundDown(Number.From([Ending DateTime]),0)}),
+    #"Expanded SplitDay" = Table.ExpandListColumn(#"Added Custom2", "SplitDay"),
+    #"Changed Type2" = Table.TransformColumnTypes(#"Expanded SplitDay",{{"SplitDay", type datetime}}),
+    #"Added Custom4" = Table.AddColumn(#"Changed Type2", "Working-Starting Time", each if Date.Day([Starting DateTime])=Date.Day([SplitDay]) then 
+(
+    if DateTime.Time([Starting DateTime])<DateTime.Time(#datetime(2020, 1, 1, 9, 30, 0))
+    then 
+    DateTime.Time(#datetime(2020, 1, 1, 9, 30, 0))
+    else
+    (
+        if DateTime.Time([Starting DateTime])>DateTime.Time(#datetime(2020, 1, 1, 18, 30, 0)) then
+    DateTime.Time(#datetime(2020, 1, 1, 18, 30, 0))
+    else
+    DateTime.Time([Starting DateTime])
+    )
+)
+else DateTime.Time(#datetime(2020, 1, 1, 9, 30, 0))),
+    #"Added Custom8" = Table.AddColumn(#"Added Custom4", "Starting Time", each if Date.Day([Starting DateTime])=Date.Day([SplitDay]) then DateTime.Time([Starting DateTime]) else DateTime.Time(#datetime(2020, 1, 1, 0, 0, 1))),
+    #"Added Custom5" = Table.AddColumn(#"Added Custom8", "Working-Ending Time", each if Date.Day([Ending DateTime])=Date.Day([SplitDay]) then 
+(
+    if DateTime.Time([Ending DateTime])>DateTime.Time(#datetime(2020, 1, 1, 18, 30, 0))
+    then
+    DateTime.Time(#datetime(2020, 1, 1, 18, 30, 0))
+    else
+    (
+        if DateTime.Time([Ending DateTime])<DateTime.Time(#datetime(2020, 1, 1, 9, 30, 0)) then
+    DateTime.Time(#datetime(2020, 1, 1, 9, 30, 0))
+    else
+    DateTime.Time([Ending DateTime])
+    )
+)
+else DateTime.Time(#datetime(2020, 1, 1, 18, 30, 0))),
+    #"Added Custom9" = Table.AddColumn(#"Added Custom5", "Ending Time", each if Date.Day([Ending DateTime])=Date.Day([SplitDay]) then DateTime.Time([Ending DateTime]) else DateTime.Time(#datetime(2020, 1, 1, 23, 59, 59))),
+    #"Added Custom6" = Table.AddColumn(#"Added Custom9", "Working-Time", each Number.Abs(Number.From([#"Working-Ending Time"])-Number.From([#"Working-Starting Time"]))*24*60*60),
+    #"Added Custom7" = Table.AddColumn(#"Added Custom6", "Date&User", each Text.From(DateTime.Date([SplitDay]))
+& "-" & Text.Lower([User])),
+    #"Merged Queries1" = Table.NestedJoin(#"Added Custom7", {"Date&User"}, #"Project Usage", {"Date&User"}, "Project Usage", JoinKind.LeftOuter),
+    #"Expanded Project Usage" = Table.ExpandTableColumn(#"Merged Queries1", "Project Usage", {"ProjectName"}, {"Project Usage.ProjectName"}),
+    #"Renamed Columns3" = Table.RenameColumns(#"Expanded Project Usage",{{"Project Usage.ProjectName", "Project Number"}})
+in
+    #"Renamed Columns3"

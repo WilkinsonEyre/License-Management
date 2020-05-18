@@ -1,0 +1,28 @@
+    #"Changed Type4" = Table.TransformColumnTypes(#"Promoted Headers",{{"DateTime", type datetime}, {"TotalLicensePerUser", Int64.Type}, {"TotalLicenses", Int64.Type}, {"InstancesPerApplication", Int64.Type}, {"TotalApplications", Int64.Type}, {"TotalApplicationInstancesPerLicense", Int64.Type}, {"ID", Int64.Type}, {"ApplicationInstancesPerLicense", Int64.Type}, {"TotalApplicationsPerUser", Int64.Type}}),
+    #"Split Column by Delimiter" = Table.SplitColumn(#"Changed Type4", "LicenseDuration", Splitter.SplitTextByDelimiter(":", QuoteStyle.Csv), {"LicenseDuration.1", "LicenseDuration.2", "LicenseDuration.3"}),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Split Column by Delimiter",{{"LicenseDuration.1", Int64.Type}, {"LicenseDuration.2", Int64.Type}, {"LicenseDuration.3", Int64.Type}}),
+    #"Added Custom6" = Table.AddColumn(#"Changed Type1", "LicenseDuration-Seconds", each 3600*[LicenseDuration.1]+
+60*[LicenseDuration.2]+
+[LicenseDuration.3]),
+    #"Added Custom7" = Table.AddColumn(#"Added Custom6", "LicenseDuration", each #duration(0,0,0,[#"LicenseDuration-Seconds"])),
+    #"Reordered Columns" = Table.ReorderColumns(#"Added Custom7",{"ID", "DateTime", "Action", "LicenseCode", "ApplicationName", "User", "Computer", "TotalApplicationInstancesPerLicense", "LicenseDuration.1", "LicenseDuration.2", "LicenseDuration.3", "LicenseDuration-Seconds", "LicenseDuration", "TotalLicensePerUser", "TotalLicenses", "InstancesPerApplication", "ApplicationInstancesPerLicense", "ApplicationDuration", "TotalApplications", "TotalApplicationsPerUser"}),
+    #"Filtered Rows" = Table.SelectRows(#"Reordered Columns"  , each ([LicenseDuration] <> null)),
+    #"Added Custom3" = Table.AddColumn(#"Filtered Rows", "DateTime(Milliseconds)", each Text.From(DateTime.Date([DateTime]))&" "&
+Text.From(Time.Hour([DateTime]))&":"&
+Text.From(Time.Minute([DateTime]))&":"&
+Text.From(Time.Second([DateTime]))),
+    #"Replaced Errors" = Table.ReplaceErrorValues(#"Added Custom3", {{"LicenseDuration", #time(0, 0, 0)}}),
+    #"Renamed Columns2" = Table.RenameColumns(#"Replaced Errors",{{"LicenseDuration.1", "Hour"}, {"LicenseDuration.2", "Minute"}, {"LicenseDuration.3", "Second"}}),
+    #"Added Custom" = Table.AddColumn(#"Renamed Columns2", "Custom", each [DateTime] - #duration(0,[Hour],[Minute],[Second])),
+    #"Renamed Columns" = Table.RenameColumns(#"Added Custom",{{"Custom", "Starting DateTime"}}),
+    #"Renamed Columns1" = Table.RenameColumns(#"Renamed Columns",{{"DateTime", "Ending DateTime"}}),
+    #"Changed Type" = Table.TransformColumnTypes(#"Renamed Columns1",{{"Starting DateTime", type datetime}}),
+    #"Sorted Rows1" = Table.Sort(#"Changed Type",{{"User", Order.Ascending}}),
+    #"Added Custom1" = Table.AddColumn(#"Sorted Rows1", "DayOnly", each DateTime.Date([Ending DateTime])),
+    #"Changed Type2" = Table.TransformColumnTypes(#"Added Custom1",{{"DayOnly", type date}}),
+    #"Added Custom2" = Table.AddColumn(#"Changed Type2", "Day-License", each Text.From([DayOnly])&" "&
+Text.From([LicenseCode])),
+    #"Sorted Rows" = Table.Sort(#"Added Custom2",{{"Starting DateTime", Order.Descending}}),
+    #"Added Custom5" = Table.AddColumn(#"Sorted Rows", "Date&User", each Text.From(DateTime.Date([Ending DateTime])) &"-"& Text.Lower(Text.From([User])))
+in
+    #"Added Custom5"

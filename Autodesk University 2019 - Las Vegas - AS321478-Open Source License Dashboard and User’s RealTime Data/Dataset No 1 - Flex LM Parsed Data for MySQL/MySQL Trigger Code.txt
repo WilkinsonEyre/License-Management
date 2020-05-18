@@ -1,0 +1,531 @@
+create trigger statistics_trigger
+	AFTER INSERT ON `input_table`
+    FOR EACH ROW
+    INSERT INTO `license_schema`.`triggered_table` (`ID`, `DateTime`, `User`, `Computer`, `Action`, `LicenseCode`,`ApplicationName`,`TotalApplicationInstancesPerLicense`,`LicenseDuration`,`TotalLicenses`,`TotalLicensesPerUser`,`InstancesPerApplication`,`ApplicationInstancesPerLicense`,`ApplicationDuration`,`TotalApplications`,`TotalApplicationsPerUser`)
+    VALUES ( new.`ID`, new.`DateTime`, new.`User`, new.`Computer`, new.`Action`, new.`LicenseCode`, new.`ApplicationName`,
+		
+        #TotalApplicationInstancesPerLicense
+		(select * from 
+			(
+				(
+					(
+						select if (
+						(SELECT new.`Action`) ="OUT",
+							(SELECT if(
+									(select `TotalApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) IS NULL OR
+									(select `TotalApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) <0,
+									1,
+									(select `TotalApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)+1
+									)
+								)
+							,
+							(
+								select if
+								(
+									(SELECT new.`Action`) ="IN",
+										(
+											(SELECT `TotalApplicationInstancesPerLicense`-1 FROM `license_schema`.`triggered_table` WHERE `User`= new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)
+										)
+										,
+										(SELECT `TotalApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`= new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)
+										
+								)
+							)
+						)
+					)
+				)
+			)
+		as x),
+        
+        
+        #LicenseDuration
+		(select * from 
+			(
+                (
+					(
+						select if (
+						(SELECT new.`Action`) ="OUT",
+
+							(SELECT if(
+									(select `TotalApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) IS NULL  OR
+									(select `TotalApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) <0,
+									0,
+										(
+											select if(
+											(select `TotalApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)=0,
+											
+											
+												(
+													SELECT TIMEDIFF(
+														(new.`DateTime`) ,  (select `DateTime` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)
+													)
+												)
+												,
+												
+												(											
+													SELECT ADDTIME(
+														(
+															SELECT TIMEDIFF(
+															(new.`DateTime`), (select `DateTime` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)
+															)
+														)
+														,
+														(select `LicenseDuration` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)
+														
+													)
+												)
+											)
+										)                            
+										
+									)
+								)
+							,
+							(
+								select if
+								(
+									(SELECT new.`Action`) ="IN",
+										(
+										
+											SELECT ADDTIME(
+												(                                
+													SELECT TIMEDIFF(
+														(new.`DateTime`), (select `DateTime` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)
+													)
+												)
+												,
+												(select `LicenseDuration` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)
+												)
+										)
+										,
+										(SELECT `LicenseDuration` FROM `license_schema`.`triggered_table` WHERE `User`= new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)
+								)
+							)
+						)
+					)
+				)
+			)
+		as x),
+		
+        #TotalLicenses
+        (select * from 
+			(
+                (
+					(
+						select if (
+						(SELECT new.`Action`) ="OUT",
+							(SELECT if(
+									(select `TotalApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) IS NULL OR
+									(select `TotalApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) <1,
+                                    (SELECT if(
+											(select `TotalLicenses` FROM `license_schema`.`triggered_table` WHERE `LicenseCode`=new.`LicenseCode`ORDER BY DATETIME DESC LIMIT 1) IS NULL,
+                                            1,																																												#TOTAL =1
+                                            (
+												SELECT if
+												(
+													(SELECT new.`LicenseCode`) ="85950RVT_T_F",	# HERE you copy paste your non-perpetual License
+                                                    (
+														SELECT if
+														(
+															(select `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) IS NULL OR
+															(select `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) <1
+                                                            ,
+                                                            (SELECT `TotalLicenses` FROM `license_schema`.`triggered_table` WHERE `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)+1,							#PREVIOUS +1
+                                                            (SELECT `TotalLicenses` FROM `license_schema`.`triggered_table` WHERE `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)							#PREVIOUS 
+														)
+                                                    )
+                                                    ,
+                                                    (
+														SELECT if
+														(
+															(select `TotalLicenses` FROM `license_schema`.`triggered_table` WHERE `LicenseCode`=new.`LicenseCode`ORDER BY DATETIME DESC LIMIT 1)<0,
+															1,																																										#TOTAL =1
+															(select `TotalLicenses` FROM `license_schema`.`triggered_table` WHERE `LicenseCode`=new.`LicenseCode`ORDER BY DATETIME DESC LIMIT 1)+1            			#TOTAL +1
+														)
+													)
+												)
+											)
+                                        )
+									)
+                                    ,
+										(
+											SELECT if
+											(
+												(SELECT new.`LicenseCode`) ="85950RVT_T_F",	# HERE you copy paste your non-perpetual License
+                                                (
+													SELECT if
+													(
+														(select `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) IS NULL OR
+														(select `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) <1
+														,
+														(SELECT `TotalLicenses` FROM `license_schema`.`triggered_table` WHERE `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)+1,							#PREVIOUS +1
+														(SELECT `TotalLicenses` FROM `license_schema`.`triggered_table` WHERE `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)							#PREVIOUS 
+													)
+                                                )
+                                                ,
+                                                (select `TotalLicenses` FROM `license_schema`.`triggered_table` WHERE `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)										#PREVIOUS TOTAL 
+                                            )
+                                        )
+                                    )
+                                    
+								)
+							,
+							(
+								select if
+								(
+									(SELECT new.`Action`) ="IN",
+										(SELECT if(
+												(SELECT new.`LicenseCode`) ="85950RVT_T_F",	# HERE you copy paste your non-perpetual License
+												(
+													SELECT if  
+													(
+														(select `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) = 1, 			# When software is desccreasing and software count is 1 then release the license
+                                                        (SELECT `TotalLicenses` FROM `license_schema`.`triggered_table` WHERE `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)-1,							#PREVIOUS -1
+														(SELECT `TotalLicenses` FROM `license_schema`.`triggered_table` WHERE `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)							#PREVIOUS TOTAL
+													)
+												)                                        
+                                                ,											
+												(
+													SELECT if
+													(
+														(SELECT `TotalApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`= new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)=1,
+														(SELECT `TotalLicenses` FROM `license_schema`.`triggered_table` WHERE `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)-1,							#PREVIOUS -1
+														(SELECT `TotalLicenses` FROM `license_schema`.`triggered_table` WHERE `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)							#PREVIOUS TOTAL 
+													)
+												)
+											)
+                                        )
+										,
+										(SELECT `TotalLicenses` FROM `license_schema`.`triggered_table` WHERE `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)									#PREVIOUS TOTAL 
+								)
+							)
+						)
+					)
+				)
+			)
+		as x),
+        
+		#TotalLicensesPerUser
+        (select * from 
+			(
+                (
+					(
+						select if (
+						(SELECT new.`Action`) ="OUT",
+							(SELECT if(
+									(select `TotalApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) IS NULL OR
+									(select `TotalApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) <1,
+                                    (SELECT if(
+											(select `TotalLicensesPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1) IS NULL,
+                                            1,																																												#TOTAL =1
+                                            (
+												SELECT if
+												(
+													(SELECT new.`LicenseCode`) ="85950RVT_T_F",	# HERE you copy paste your non-perpetual License
+                                                    (
+														SELECT if
+														(
+															(select `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) IS NULL OR
+															(select `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) <1
+                                                            ,
+                                                            (SELECT `TotalLicensesPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)+1,										#PREVIOUS +1
+                                                            (SELECT `TotalLicensesPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)										#PREVIOUS
+														)
+                                                    )
+                                                    ,
+                                                    (
+                                                    
+														SELECT if
+                                                        (
+															(select `TotalLicensesPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)<0,
+															1,																																										#TOTAL =1
+															(select `TotalLicensesPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User`ORDER BY DATETIME DESC LIMIT 1)+1            			#TOTAL +1
+                                                        )
+													)
+                                                )
+											)
+                                        )
+									)
+                                    ,
+                                    
+                                    (
+										SELECT if
+										(
+											(SELECT new.`LicenseCode`) ="85950RVT_T_F",	# HERE you copy paste your non-perpetual License
+											(
+												SELECT if
+												(
+													(select `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) IS NULL OR
+													(select `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) <1
+													,
+													(SELECT `TotalLicensesPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)+1,										#PREVIOUS +1
+													(SELECT `TotalLicensesPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)										#PREVIOUS
+												)
+											)
+											,                                    
+											(select `TotalLicensesPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)										#PREVIOUS TOTAL 
+										)
+									)
+								)
+							)
+							,
+							(
+								select if
+								(
+									(SELECT new.`Action`) ="IN",
+										(SELECT if(
+												(SELECT new.`LicenseCode`) ="85950RVT_T_F",	# HERE you copy paste your non-perpetual License
+												(
+													SELECT if  
+													(
+														(select `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1) = 1, 			# When software is desccreasing and software count is 1 then release the license
+                                                        (SELECT `TotalLicensesPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)-1,							#PREVIOUS -1
+														(SELECT `TotalLicensesPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)							#PREVIOUS TOTAL
+													)
+												)                                        
+                                                ,		                                    
+												(SELECT if(
+														(SELECT `TotalApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`= new.`User` and `LicenseCode`=new.`LicenseCode` ORDER BY DATETIME DESC LIMIT 1)=1,
+														(SELECT `TotalLicensesPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)-1,									#PREVIOUS -1
+														(SELECT `TotalLicensesPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)										#PREVIOUS TOTAL 
+													)
+												)
+											)
+										)
+										,
+										(SELECT `TotalLicensesPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)														#PREVIOUS TOTAL 
+								)
+							)
+						)
+					)
+				)
+			)
+		as x),
+        
+        #InstancesPerApplication
+		(select * from 
+			(
+                (
+					(
+						select if (
+						(SELECT new.`Action`) ="OUT",
+							(SELECT if(
+									(select `InstancesPerApplication` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1) IS NULL OR
+									(select `InstancesPerApplication` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1) <0,
+									1,
+									(select `InstancesPerApplication` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)+1
+									)
+								)
+							,
+							(
+								select if
+								(
+									(SELECT new.`Action`) ="IN",
+										(
+											(SELECT `InstancesPerApplication`-1 FROM `license_schema`.`triggered_table` WHERE `User`= new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)
+										)
+										,
+										(SELECT `InstancesPerApplication` FROM `license_schema`.`triggered_table` WHERE `User`= new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)
+										
+								)
+							)
+						)
+					)
+				)
+			)
+		as x),
+        
+        #ApplicationInstancesPerLicense (NOT per application) - Why not? I Believe it is
+		(select * from 
+			(
+                (
+					(
+						select if (
+						(SELECT new.`Action`) ="OUT",
+							(SELECT if(
+									(select `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1) IS NULL OR
+									(select `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1) <0,
+									1,
+									(select `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `LicenseCode`=new.`LicenseCode` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)+1
+									)
+								)
+							,
+							(
+								select if
+								(
+									(SELECT new.`Action`) ="IN",
+										(
+											(SELECT `ApplicationInstancesPerLicense`-1 FROM `license_schema`.`triggered_table` WHERE `User`= new.`User` and `LicenseCode`=new.`LicenseCode` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)
+										)
+										,
+										(SELECT `ApplicationInstancesPerLicense` FROM `license_schema`.`triggered_table` WHERE `User`= new.`User` and `LicenseCode`=new.`LicenseCode` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)
+										
+								)
+							)
+						)
+					)
+				)
+			)
+		as x),
+        
+        #ApplicationDuration
+		(select * from 
+			(
+                (
+					(
+						select if (
+						(SELECT new.`Action`) ="OUT",
+
+							(SELECT if(
+									(select `InstancesPerApplication` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1) IS NULL  OR
+									(select `InstancesPerApplication` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1) <0,
+									0,
+										(
+											select if(
+											(select `InstancesPerApplication` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)=0,
+											
+											
+												(
+													SELECT TIMEDIFF(
+														(new.`DateTime`) ,  (select `DateTime` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)
+													)
+												)
+												,
+												
+												(											
+													SELECT ADDTIME(
+														(
+															SELECT TIMEDIFF(
+															(new.`DateTime`), (select `DateTime` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)
+															)
+														)
+														,
+														(select `ApplicationDuration` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)
+														
+													)
+												)
+											)
+										)                            
+										
+									)
+								)
+							,
+							(
+								select if
+								(
+									(SELECT new.`Action`) ="IN",
+										(
+										
+											SELECT ADDTIME(
+												(                                
+													SELECT TIMEDIFF(
+														(new.`DateTime`), (select `DateTime` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)
+													)
+												)
+												,
+												(select `ApplicationDuration` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)
+												)
+										)
+										,
+										(SELECT `ApplicationDuration` FROM `license_schema`.`triggered_table` WHERE `User`= new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)
+								)
+							)
+						)
+					)
+				)
+			)
+		as x),
+		
+        #TotalApplications
+        (select * from 
+			(
+                (
+					(
+						select if (
+						(SELECT new.`Action`) ="OUT",
+							(SELECT if(
+									(select `InstancesPerApplication` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1) IS NULL OR
+									(select `InstancesPerApplication` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1) <1,
+                                    (SELECT if(
+											(select `TotalApplications` FROM `license_schema`.`triggered_table` WHERE `ApplicationName`=new.`ApplicationName`ORDER BY DATETIME DESC LIMIT 1) IS NULL,
+                                            1,																																												#TOTAL =1
+                                            (SELECT if(
+													(select `TotalApplications` FROM `license_schema`.`triggered_table` WHERE `ApplicationName`=new.`ApplicationName`ORDER BY DATETIME DESC LIMIT 1)<0,
+                                                    1,																																										#TOTAL =1
+													(select `TotalApplications` FROM `license_schema`.`triggered_table` WHERE `ApplicationName`=new.`ApplicationName`ORDER BY DATETIME DESC LIMIT 1)+1            			#TOTAL +1
+                                                )
+											)
+                                        )
+									)
+                                    ,
+									(select `TotalApplications` FROM `license_schema`.`triggered_table` WHERE `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)										#PREVIOUS TOTAL 
+									)
+								)
+							,
+							(
+								select if
+								(
+									(SELECT new.`Action`) ="IN",
+										(SELECT if(
+												(SELECT `InstancesPerApplication` FROM `license_schema`.`triggered_table` WHERE `User`= new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)=1,
+												(SELECT `TotalApplications` FROM `license_schema`.`triggered_table` WHERE `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)-1,							#PREVIOUS -1
+                                                (SELECT `TotalApplications` FROM `license_schema`.`triggered_table` WHERE `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)							#PREVIOUS TOTAL 
+											)
+                                        )
+										,
+										(SELECT `TotalApplications` FROM `license_schema`.`triggered_table` WHERE `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)									#PREVIOUS TOTAL 
+										
+								)
+							)
+						)
+					)
+				)
+			)
+		as x),
+        
+        #TotalApplicationsPerUser
+        (select * from 
+			(
+                (
+					(
+						select if (
+						(SELECT new.`Action`) ="OUT",
+							(SELECT if(
+									(select `InstancesPerApplication` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1) IS NULL OR
+									(select `InstancesPerApplication` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1) <1,
+                                    (SELECT if(
+											(select `TotalApplicationsPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1) IS NULL,
+                                            1,																																												#TOTAL =1
+                                            (SELECT if(
+													(select `TotalApplicationsPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)<0,
+                                                    1,																																										#TOTAL =1
+													(select `TotalApplicationsPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User`ORDER BY DATETIME DESC LIMIT 1)+1            			#TOTAL +1
+                                                )
+											)
+                                        )
+									)
+                                    ,
+									(select `TotalApplicationsPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)										#PREVIOUS TOTAL 
+									)
+								)
+							,
+							(
+								select if
+								(
+									(SELECT new.`Action`) ="IN",
+										(SELECT if(
+												(SELECT `InstancesPerApplication` FROM `license_schema`.`triggered_table` WHERE `User`= new.`User` and `ApplicationName`=new.`ApplicationName` ORDER BY DATETIME DESC LIMIT 1)=1,
+												(SELECT `TotalApplicationsPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)-1,							#PREVIOUS -1
+                                                (SELECT `TotalApplicationsPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)							#PREVIOUS TOTAL 
+											)
+                                        )
+										,
+										(SELECT `TotalApplicationsPerUser` FROM `license_schema`.`triggered_table` WHERE `User`=new.`User` ORDER BY DATETIME DESC LIMIT 1)									#PREVIOUS TOTAL 
+								)
+							)
+						)
+					)
+				)
+			)
+		as x)
+        
+	)

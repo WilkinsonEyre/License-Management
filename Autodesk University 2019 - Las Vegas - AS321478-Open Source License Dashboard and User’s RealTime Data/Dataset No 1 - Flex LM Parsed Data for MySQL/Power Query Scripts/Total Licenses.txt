@@ -1,0 +1,7 @@
+let
+    Source = Table.FromRows(Json.Document(Binary.Decompress(Binary.FromText("i45WcnR1VnD29/FxdQ7x9PdT0lEyMlCK1QGKh4b4Ozu6AAVMlWJjAQ==", BinaryEncoding.Base64), Compression.Deflate)), let _t = ((type text) meta [Serialized.Text = true]) in type table [Column1 = _t, Column2 = _t]),
+    #"Added Index" = Table.AddIndexColumn(Source, "Index", 0, 1),
+    #"Changed Type" = Table.TransformColumnTypes(#"Added Index",{{"Column1", type text}, {"Column2", Int64.Type}}),
+    #"Renamed Columns" = Table.RenameColumns(#"Changed Type",{{"Column1", "LicenseCode"}, {"Column2", "Total Licenses"}})
+in
+    #"Renamed Columns"

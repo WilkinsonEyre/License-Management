@@ -1,0 +1,7 @@
+let
+    Source = MySQL.Database("WEA-BIM-SQL", "license_schema", [ReturnSingleDatabase=true]),
+    wea_revit_licenses_autodesk_extended = Source{[Schema="license_schema",Item="autodesk_licenses_triggered"]}[Data],
+    #"Removed Other Columns" = Table.SelectColumns(wea_revit_licenses_autodesk_extended,{"User"}),
+    #"Removed Duplicates" = Table.Distinct(#"Removed Other Columns")
+in
+    #"Removed Duplicates"

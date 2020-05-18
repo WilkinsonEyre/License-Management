@@ -1,0 +1,28 @@
+let
+    Source = MySQL.Database("localhost", "license_schema", [ReturnSingleDatabase=true]),
+    license_schema_triggered_table = Source{[Schema="license_schema",Item="triggered_table"]}[Data],
+    #"Filtered Rows" = Table.SelectRows(license_schema_triggered_table, each ([LicenseDuration] <> null)),
+    #"Added Custom3" = Table.AddColumn(#"Filtered Rows", "DateTime(Milliseconds)", each Text.From(DateTime.Date([DateTime]))&" "&
+Text.From(Time.Hour([DateTime]))&":"&
+Text.From(Time.Minute([DateTime]))&":"&
+Text.From(Time.Second([DateTime]))),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Added Custom3",{{"LicenseDuration", type time}}),
+    #"Replaced Errors" = Table.ReplaceErrorValues(#"Changed Type1", {{"LicenseDuration", #time(0, 0, 0)}}),
+    #"Inserted Hour" = Table.AddColumn(#"Replaced Errors", "Hour", each Time.Hour([LicenseDuration]), Int64.Type),
+    #"Inserted Minute" = Table.AddColumn(#"Inserted Hour", "Minute", each Time.Minute([LicenseDuration]), Int64.Type),
+    #"Inserted Second" = Table.AddColumn(#"Inserted Minute", "Second", each Time.Second([LicenseDuration]), type number),
+    #"Added Custom" = Table.AddColumn(#"Inserted Second", "Custom", each [DateTime] - #duration(0,[Hour],[Minute],[Second])),
+    #"Renamed Columns" = Table.RenameColumns(#"Added Custom",{{"Custom", "Starting DateTime"}}),
+    #"Renamed Columns1" = Table.RenameColumns(#"Renamed Columns",{{"DateTime", "Ending DateTime"}}),
+    #"Changed Type" = Table.TransformColumnTypes(#"Renamed Columns1",{{"Starting DateTime", type datetime}}),
+    #"Sorted Rows1" = Table.Sort(#"Changed Type",{{"User", Order.Ascending}}),
+    #"Added Custom1" = Table.AddColumn(#"Sorted Rows1", "DayOnly", each DateTime.Date([Ending DateTime])),
+    #"Changed Type2" = Table.TransformColumnTypes(#"Added Custom1",{{"DayOnly", type date}}),
+    #"Added Custom2" = Table.AddColumn(#"Changed Type2", "Day-License", each Text.From([DayOnly])&" "&
+Text.From([LicenseCode])),
+    #"Sorted Rows" = Table.Sort(#"Added Custom2",{{"Starting DateTime", Order.Descending}}),
+    #"Added Custom4" = Table.AddColumn(#"Sorted Rows", "User-Version", each [User]&" "&
+[Version]),
+    #"Added Custom5" = Table.AddColumn(#"Added Custom4", "Date&User", each Text.From(DateTime.Date([Ending DateTime])) &"-"& Text.Lower(Text.From([User])))
+in
+    #"Added Custom5"

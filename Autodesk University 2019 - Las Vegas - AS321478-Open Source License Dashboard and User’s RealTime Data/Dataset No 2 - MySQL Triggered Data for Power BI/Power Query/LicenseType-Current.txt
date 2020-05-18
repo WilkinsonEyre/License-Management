@@ -1,0 +1,18 @@
+#"Changed Type4" = Table.TransformColumnTypes(#"Promoted Headers",{{"DateTime", type datetime}, {"TotalLicensePerUser", Int64.Type}, {"TotalLicenses", Int64.Type}, {"InstancesPerApplication", Int64.Type}, {"TotalApplications", Int64.Type}, {"TotalApplicationInstancesPerLicense", Int64.Type}, {"ID", Int64.Type}, {"ApplicationInstancesPerLicense", Int64.Type}, {"TotalApplicationsPerUser", Int64.Type}}),
+    #"Split Column by Delimiter" = Table.SplitColumn(#"Changed Type4", "LicenseDuration", Splitter.SplitTextByDelimiter(":", QuoteStyle.Csv), {"LicenseDuration.1", "LicenseDuration.2", "LicenseDuration.3"}),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Split Column by Delimiter",{{"LicenseDuration.1", Int64.Type}, {"LicenseDuration.2", Int64.Type}, {"LicenseDuration.3", Int64.Type}}),
+    #"Added Custom6" = Table.AddColumn(#"Changed Type1", "LicenseDuration-Seconds", each 3600*[LicenseDuration.1]+
+60*[LicenseDuration.2]+
+[LicenseDuration.3]),
+    #"Added Custom7" = Table.AddColumn(#"Added Custom6", "LicenseDuration", each #duration(0,0,0,[#"LicenseDuration-Seconds"])),
+    #"Reordered Columns" = Table.ReorderColumns(#"Added Custom7",{"ID", "DateTime", "Action", "LicenseCode", "ApplicationName", "User", "Computer", "TotalApplicationInstancesPerLicense", "LicenseDuration.1", "LicenseDuration.2", "LicenseDuration.3", "LicenseDuration-Seconds", "LicenseDuration", "TotalLicensePerUser", "TotalLicenses", "InstancesPerApplication", "ApplicationInstancesPerLicense", "ApplicationDuration", "TotalApplications", "TotalApplicationsPerUser"}),
+    #"Sorted Rows" = Table.Sort(#"Reordered Columns",{{"DateTime", Order.Descending}}),
+    #"Filtered Rows1" = Table.SelectRows(#"Sorted Rows", each ([Action] = "IN" or [Action] = "OUT")),
+    
+    #"Buffered" = Table.Buffer(#"Filtered Rows1"),
+    #"Removed Duplicates" = Table.Distinct(#"Buffered", {"LicenseCode"}),
+    #"Merged Queries" = Table.NestedJoin(#"Removed Duplicates", {"LicenseCode"}, #"Total Licenses", {"LicenseCode"}, "Removed Duplicates", JoinKind.LeftOuter),
+    #"Expanded Removed Duplicates1" = Table.ExpandTableColumn(#"Merged Queries", "Removed Duplicates", {"Total Licenses"}, {"Removed Duplicates.Total Licenses"}),
+    #"Renamed Columns" = Table.RenameColumns(#"Expanded Removed Duplicates1",{{"TotalLicenses", "Aquired Licenses"}, {"Removed Duplicates.Total Licenses", "Total Licenses"}})
+in
+    #"Renamed Columns"

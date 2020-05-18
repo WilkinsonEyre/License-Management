@@ -1,0 +1,64 @@
+#loading the libraries
+library(ggplot2)
+library("neuralnet")
+
+#Creating the dataset
+Rows = nrow(dataset)
+datetime <- dataset[c(1)][2:Rows,]
+FollowingLicenses <- dataset[c(3)][2:Rows,]
+FollowingUsers <- dataset[c(2)][2:Rows,]
+CurrentUsers <- dataset[c(2)][1:Rows - 1,]
+CurrentLicenses <- dataset[c(3)][1:Rows - 1,]
+alldata <- data.frame(datetime, FollowingUsers, CurrentUsers, FollowingLicenses, CurrentLicenses)
+
+#Spliting the dataset to training and testing sets
+trainingPercentage = 0.6
+trainingset <- alldata[1:(round(Rows * trainingPercentage)),]
+testingset <- alldata[(round(Rows * trainingPercentage) + 2):Rows - 1,]
+
+
+#Creating a model
+model <- neuralnet(FollowingLicenses ~ FollowingUsers + CurrentUsers + CurrentLicenses, data = trainingset, rep = 10, hidden = 5
+, algorithm = "rprop+", err.fct = "sse", act.fct = "tanh", linear.output = TRUE) #learningrate = 0.01 #, threshold = 0.005
+
+#Evaluating Model - Calculate Training Root Mean Square Error (RMSE)
+TrainingPredictedLicenses <- compute(model, data.frame(data.frame(trainingset$FollowingUsers, trainingset$CurrentUsers, trainingset$CurrentLicenses)))$net.result
+#plot(trainingset$FollowingLicenses, TrainingPredictedLicenses, col = 'red', main = 'Historic vs Predicted Licenses')
+#abline(0, 1, lwd = 3)
+TrainingRMSE = (sum((trainingset$FollowingLicenses - TrainingPredictedLicenses) ^ 2) / nrow(trainingset)) ^ 0.5
+
+#Evaluating Model - Calculate Testing Root Mean Square Error (RMSE)
+TestingPredictedLicenses <- compute(model, data.frame(data.frame(testingset$FollowingUsers, testingset$CurrentUsers, testingset$CurrentLicenses)))$net.result
+#plot(testingset$FollowingLicenses, TestingPredictedLicenses, col = 'red', main = 'Historic vs Predicted Licenses')
+#abline(0, 1, lwd = 2)
+TestingRMSE = (sum((testingset$FollowingLicenses - TestingPredictedLicenses) ^ 2) / nrow(testingset)) ^ 0.5
+
+#Preparing Inputs for Today Prediction
+TodayUsers <- alldata[(Rows-1), 2]
+TodayLicenses <- alldata[(Rows-1), 3]
+TodaySet <- data.frame(dataset$FutureUsers[1], TodayUsers, TodayLicenses)
+
+#Calculate Prediction for Today
+results = data.frame(result = character())
+for (i in 1:10) {
+    result <- compute(model, TodaySet, rep = i)$net.result
+    results = rbind(results, result)
+}
+
+#Create License Graph
+DayOnly <- as.Date(format(dataset$DayOnly))
+TotalLicenses <- dataset$TotalLicenses
+Licenses = data.frame(Day = DayOnly, Licenses = TotalLicenses, "HistoricData", 2, "dashed")
+names(Licenses) <- c("Day", " CurrentLicenses", "Data", "Size", "Linetype")
+CurrentLicenses = data.frame(CurrentLicenses = CurrentLicenses)
+max = data.frame(Day = c(DayOnly[Rows], DayOnly[Rows] + 1), Licenses = c(TotalLicenses[Rows], max(results)), paste("PredictionMAX"), 3, "dotted")
+names(max) <- c("Day", " CurrentLicenses", "Data", "Size", "Linetype")
+min = data.frame(Day = c(DayOnly[Rows], DayOnly[Rows] + 1), Licenses = c(TotalLicenses[Rows], min(results)), paste("PredictionMIN"), 3, "dotted")
+names(min) <- c("Day", " CurrentLicenses", "Data", "Size", "Linetype")
+Licenses = rbind(Licenses, max)
+Licenses = rbind(Licenses, min)
+AllCurrentLicenses = Licenses
+
+ggplot(AllCurrentLicenses, aes(x = Day, y = ` CurrentLicenses`, group = Data)) + geom_line(size = 3, aes(, linetype = Data, color = Data)) + theme_minimal() + geom_point()
+#grid.table(results)
+#plot(model,rep="best")

@@ -1,0 +1,5 @@
+let
+    Source = Table.FromRows(Json.Document(Binary.Decompress(Binary.FromText("hZDNDoIwEIRfhXDm0PLT7R4bwMQDxKAhJoQQgh6IB4wg+viCUlsOwGm3m2/SmckykzMb3CRM96fCJtQryM60zOTa152cxng3c2tkXU+xbIFlEwuEJemXhAUSJhIpTCRfIPmPBOriROICidIpUCc4RuKsWR0ORlS+1abbZcQVfqDZFc+uqcqL2nTLwFgs0kjEmiAu+7p9NY9bO3vMkiJXMr4pk7EJ2CoMroRBKUAnCX1xmDVVlXc5dZaCFgU3Pf2/4LIvXOlroPMP", BinaryEncoding.Base64), Compression.Deflate)), let _t = ((type text) meta [Serialized.Text = true]) in type table [LicenseNumber = _t, SoftwareName = _t, SoftwareVersion = _t]),
+    #"Renamed Columns" = Table.RenameColumns(Source,{{"LicenseNumber", "Application"}, {"SoftwareVersion", "ApplicationVersion"}, {"SoftwareName", "ApplicationName"}})
+in
+    #"Renamed Columns"
